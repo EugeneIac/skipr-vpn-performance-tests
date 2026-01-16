@@ -1,0 +1,138 @@
+name: Performance Tests
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Test environment'
+        required: true
+        type: choice
+        options:
+          - test
+          - dev
+          - staging
+          - prod
+        default: 'test'
+      max_vus:
+        description: 'Maximum Virtual Users'
+        required: true
+        type: choice
+        options:
+          - '10'
+          - '25'
+          - '50'
+          - '100'
+          - '150'
+          - '200'
+        default: '50'
+      test_type:
+        description: 'Test type to run'
+        required: true
+        type: choice
+        options:
+          - smoke
+          - baseline
+          - load
+          - stress
+          - full
+        default: 'smoke'
+      duration:
+        description: 'Test duration'
+        required: true
+        type: choice
+        options:
+          - '30s'
+          - '1m'
+          - '5m'
+          - '10m'
+          - '15m'
+          - '30m'
+        default: '5m'
+
+jobs:
+  performance-test:
+    name: Run K6 Performance Tests
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: k6/package.json
+
+      - name: Install dependencies
+        run: |
+          cd k6
+          npm ci
+
+      - name: Build K6 TypeScript tests
+        run: |
+          cd k6
+          npm run build
+
+      - name: Setup k6
+        uses: grafana/setup-k6-action@v1
+
+      - name: Run performance tests
+        env:
+          TEST_ENV: ${{ inputs.environment }}
+          MAX_VUS: ${{ inputs.max_vus }}
+          TEST_TYPE: ${{ inputs.test_type }}
+          TEST_DURATION: ${{ inputs.duration }}
+        run: |
+          chmod +x scripts/run_k6_tests.sh
+          ./scripts/run_k6_tests.sh
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: k6-test-results-${{ inputs.test_type }}-${{ github.run_number }}
+          path: results/
+          retention-days: 30
+
+      - name: Generate summary
+        if: always()
+        run: |
+          echo "## 📊 Performance Test Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Configuration:**" >> $GITHUB_STEP_SUMMARY
+          echo "- Environment: \`${{ inputs.environment }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Test Type: \`${{ inputs.test_type }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Max VUs: \`${{ inputs.max_vus }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Duration: \`${{ inputs.duration }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ -f results/summary.json ]; then
+            echo "**Results:**" >> $GITHUB_STEP_SUMMARY
+            cat results/summary.json >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Check thresholds
+        if: inputs.test_type != 'smoke'
+        run: |
+          # Check if test passed thresholds
+          if grep -q "✗" results/*.txt 2>/dev/null; then
+            echo "::warning::Some thresholds were not met"
+            exit 1
+          fi
+
+  notify:
+    name: Notify Results
+    needs: performance-test
+    runs-on: ubuntu-latest
+    if: always()
+    
+    steps:
+      - name: Test Status
+        run: |
+          if [ "${{ needs.performance-test.result }}" == "success" ]; then
+            echo "✅ Performance tests passed"
+          else
+            echo "❌ Performance tests failed"
+            exit 1
+          fi
