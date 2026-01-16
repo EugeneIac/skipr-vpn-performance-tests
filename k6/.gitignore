@@ -1,0 +1,22 @@
+# Dependencies
+node_modules/
+package-lock.json
+yarn.lock
+
+# Build output
+dist/
+*.js.map
+
+# Environment config
+env.json
+
+# K6 results
+results.json
+result.json
+*.log
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo

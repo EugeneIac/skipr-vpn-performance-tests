@@ -1,0 +1,30 @@
+apiVersion: 1
+
+datasources:
+  # Prometheus для системных метрик
+  - name: Prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+    editable: false
+    jsonData:
+      timeInterval: "5s"
+      queryTimeout: "60s"
+      httpMethod: POST
+    version: 1
+
+  # InfluxDB v2 для k6 метрик
+  - name: InfluxDB_v2
+    type: influxdb
+    access: proxy
+    url: http://influxdb:8086
+    editable: false
+    jsonData:
+      version: Flux
+      organization: skipr
+      defaultBucket: k6
+      tlsSkipVerify: true
+    secureJsonData:
+      token: skipr-token-change-me
+    version: 1

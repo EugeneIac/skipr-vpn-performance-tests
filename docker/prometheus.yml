@@ -1,0 +1,82 @@
+global:
+  scrape_interval: 5s
+  evaluation_interval: 5s
+  external_labels:
+    monitor: 'vpn-backend-monitor'
+
+# Alertmanager configuration (опционально)
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: []
+          # - alertmanager:9093
+
+# Load rules once and periodically evaluate them
+rule_files:
+  # - "alerts/*.yml"
+
+scrape_configs:
+  # Prometheus self-monitoring
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # Node Exporter - системные метрики
+  - job_name: 'node-exporter'
+    static_configs:
+      - targets: ['node-exporter:9100']
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        replacement: 'vpn-server'
+
+  # OpenVPN Exporter - метрики VPN сервера
+  - job_name: 'openvpn-exporter'
+    static_configs:
+      - targets: ['openvpn-exporter:9176']
+    metric_relabel_configs:
+      - source_labels: [__name__]
+        regex: 'openvpn_.*'
+        action: keep
+
+  # VPN Backend API - если есть /metrics endpoint
+  - job_name: 'vpn-backend-api'
+    metrics_path: '/metrics'
+    static_configs:
+      - targets:
+          # Замените на реальные адреса ваших backend серверов
+          # - 'api.skipr.network:443'
+          - 'localhost:8080'
+    scheme: https
+    tls_config:
+      insecure_skip_verify: true
+
+  # k6 metrics (если используете k6 с Prometheus output)
+  - job_name: 'k6'
+    static_configs:
+      - targets: []
+    # k6 может push метрики в Prometheus через RemoteWrite
+
+  # Docker containers metrics (если используете cAdvisor)
+  - job_name: 'cadvisor'
+    static_configs:
+      - targets: []
+          # - 'cadvisor:8080'
+
+  # Custom application metrics
+  - job_name: 'custom-metrics'
+    static_configs:
+      - targets: []
+        # Добавьте ваши кастомные экспортеры здесь
+
+# Remote write configuration (опционально, для Grafana Cloud или InfluxDB)
+# remote_write:
+#   - url: "http://influxdb:8086/api/v1/prom/write?db=prometheus"
+#     queue_config:
+#       capacity: 10000
+#       max_shards: 200
+#       max_samples_per_send: 1000
+
+# Remote read configuration (опционально)
+# remote_read:
+#   - url: "http://influxdb:8086/api/v1/prom/read?db=prometheus"

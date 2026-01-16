@@ -1,0 +1,50 @@
+apiVersion: 1
+
+# Contact points - куда отправлять алерты
+contactPoints:
+  - orgId: 1
+    name: default-email
+    receivers:
+      - uid: default-email
+        type: email
+        settings:
+          addresses: "evgheni@skipr.network"
+          singleEmail: true
+        disableResolveMessage: false
+        
+  # Uncomment для Slack/Discord webhook
+  # - orgId: 1
+  #   name: slack-alerts
+  #   receivers:
+  #     - uid: slack-webhook
+  #       type: slack
+  #       settings:
+  #         url: "https://hooks.slack.com/services/YOUR/WEBHOOK/URL"
+  #         title: "{{ .GroupLabels.alertname }}"
+  #         text: "{{ .Annotations.summary }}\n{{ .Annotations.description }}"
+  #       disableResolveMessage: false
+
+# Notification policies - какие алерты куда отправлять
+policies:
+  - orgId: 1
+    receiver: default-email
+    group_by: ['alertname', 'severity']
+    group_wait: 30s
+    group_interval: 5m
+    repeat_interval: 4h
+    routes:
+      # Critical алерты - сразу отправлять
+      - receiver: default-email
+        matchers:
+          - severity = critical
+        group_wait: 10s
+        repeat_interval: 1h
+        continue: false
+        
+      # Warning алерты - группировать
+      - receiver: default-email
+        matchers:
+          - severity = warning
+        group_wait: 1m
+        repeat_interval: 4h
+        continue: false

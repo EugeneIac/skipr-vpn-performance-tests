@@ -1,0 +1,50 @@
+# Python dependencies для VPN Performance Testing
+
+# Load Testing
+locust>=2.20.0              # Web-based load testing tool
+geventhttpclient>=2.0.11    # HTTP client для Locust
+
+# Data Analysis & Reporting
+pandas>=2.1.0               # Data analysis
+matplotlib>=3.8.0           # Plotting
+seaborn>=0.13.0             # Statistical visualization
+jinja2>=3.1.2               # Template engine для отчетов
+
+# Monitoring & Metrics
+prometheus-client>=0.19.0   # Prometheus metrics
+psutil>=5.9.0               # System metrics
+requests>=2.31.0            # HTTP library
+
+# Configuration
+python-dotenv>=1.0.0        # .env файлы support
+pyyaml>=6.0.1               # YAML configuration
+
+# CLI & Utilities
+click>=8.1.7                # CLI framework
+colorama>=0.4.6             # Colored terminal output
+tabulate>=0.9.0             # Pretty-print tabular data
+tqdm>=4.66.0                # Progress bars
+
+# Logging
+loguru>=0.7.2               # Advanced logging
+
+# Testing & Validation
+pytest>=7.4.0               # Testing framework (для unit tests)
+pytest-cov>=4.1.0           # Coverage
+
+# Notifications (optional)
+slack-sdk>=3.26.0           # Slack notifications
+pymsteams>=0.2.2            # MS Teams notifications
+
+# API Testing
+httpx>=0.25.0               # Modern HTTP client
+
+# Report Generation
+reportlab>=4.0.0            # PDF generation
+weasyprint>=60.0            # HTML to PDF
+
+# Optional: для работы с Docker API
+docker>=7.0.0
+
+# Optional: для работы с Kubernetes (если используется)
+# kubernetes>=28.1.0

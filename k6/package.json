@@ -1,0 +1,37 @@
+{
+  "name": "skipr-k6-tests",
+  "version": "1.0.0",
+  "description": "K6 performance tests for Skipr VPN API",
+  "main": "index.js",
+  "scripts": {
+    "build": "webpack",
+    "build:watch": "webpack --watch",
+    "clean": "rm -rf dist",
+    "test:smoke": "k6 run --insecure-skip-tls-verify dist/instant-servers.test.js",
+    "test:e2e": "k6 run --insecure-skip-tls-verify dist/e2e-simple.test.js",
+    "test:baseline": "k6 run --insecure-skip-tls-verify dist/e2e-simple.test.js --vus 10 --duration 5m --out json=../../results/baseline.json",
+    "test:load": "k6 run --insecure-skip-tls-verify dist/e2e-simple.test.js --stage 2m:10,3m:25,5m:50,3m:25,2m:0 --out json=../../results/load.json",
+    "test:stress": "k6 run --insecure-skip-tls-verify dist/e2e-simple.test.js --stage 3m:50,5m:100,5m:150,3m:100,2m:0 --out json=../../results/stress.json",
+    "test:spike": "k6 run --insecure-skip-tls-verify dist/e2e-simple.test.js --stage 30s:10,30s:100,2m:100,30s:10 --out json=../../results/spike.json",
+    "test:soak": "k6 run --insecure-skip-tls-verify dist/e2e-simple.test.js --vus 30 --duration 60m --out json=../../results/soak.json",
+    "test:all": "npm run test:smoke && npm run test:e2e && npm run test:baseline && npm run test:load"
+  },
+  "keywords": ["k6", "performance", "testing", "vpn", "skipr"],
+  "author": "Skipr Network",
+  "license": "MIT",
+  "devDependencies": {
+    "@babel/core": "^7.26.0",
+    "@babel/preset-env": "^7.26.0",
+    "@babel/preset-typescript": "^7.26.0",
+    "@types/k6": "^0.53.0",
+    "@types/webpack": "^5.28.5",
+    "babel-loader": "^9.2.1",
+    "clean-webpack-plugin": "^4.0.0",
+    "typescript": "^5.7.2",
+    "webpack": "^5.97.1",
+    "webpack-cli": "^5.1.4"
+  },
+  "dependencies": {
+    "tweetnacl": "^1.0.3"
+  }
+}

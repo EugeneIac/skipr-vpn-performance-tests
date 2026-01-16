@@ -1,0 +1,96 @@
+apiVersion: 1
+
+groups:
+  - orgId: 1
+    name: K6 Performance Alerts
+    folder: Performance Testing
+    interval: 30s
+    rules:
+      - uid: k6_success_rate_low
+        title: HTTP Success Rate Too Low
+        condition: A
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: PBFA97CFB590B2093
+            model:
+              expr: (1 - (sum(k6_http_req_failed_rate) / count(k6_http_req_failed_rate))) * 100
+              refId: A
+        noDataState: NoData
+        execErrState: Error
+        for: 1m
+        annotations:
+          description: "HTTP success rate is {{ $values.A.Value }}%, below critical threshold of 95%"
+          summary: "VPN API success rate critically low"
+        labels:
+          severity: critical
+          team: backend
+        
+      - uid: k6_response_time_high
+        title: Response Time Too High (p99)
+        condition: A
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: PBFA97CFB590B2093
+            model:
+              expr: max(k6_http_req_duration_p99)
+              refId: A
+        noDataState: NoData
+        execErrState: Error
+        for: 2m
+        annotations:
+          description: "Max response time (p99) is {{ $values.A.Value }}ms, exceeds 3000ms threshold"
+          summary: "VPN API response time critically high"
+        labels:
+          severity: warning
+          team: backend
+        
+      - uid: k6_checks_failing
+        title: K6 Checks Failing
+        condition: A
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: PBFA97CFB590B2093
+            model:
+              expr: avg(k6_checks_rate) * 100
+              refId: A
+        noDataState: NoData
+        execErrState: Error
+        for: 1m
+        annotations:
+          description: "K6 checks pass rate is {{ $values.A.Value }}%, below 70% threshold"
+          summary: "K6 test checks failing"
+        labels:
+          severity: warning
+          team: qa
+        
+      - uid: k6_no_tests_running
+        title: No K6 Tests Detected
+        condition: A
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 600
+              to: 0
+            datasourceUid: PBFA97CFB590B2093
+            model:
+              expr: count(k6_vus)
+              refId: A
+        noDataState: Alerting
+        execErrState: Error
+        for: 10m
+        annotations:
+          description: "No K6 test metrics detected in last 10 minutes. CI/CD pipeline may be broken."
+          summary: "K6 tests not running"
+        labels:
+          severity: warning
+          team: devops
+        # Alert if no metrics for 10 minutes

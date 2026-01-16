@@ -1,0 +1,178 @@
+# ⚠️ DEPRECATED - Use docker-compose.monitoring.yml instead
+# 
+# For automated CI/CD setup, use:
+#   docker-compose -f docker-compose.monitoring.yml up -d
+#
+# Or simply run: make start
+#
+# This file kept for backwards compatibility
+
+services:
+  # Prometheus для сбора метрик
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: vpn-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=30d'
+    networks:
+      - monitoring
+    restart: unless-stopped
+
+  # Grafana для визуализации
+  grafana:
+    image: grafana/grafana:latest
+    container_name: vpn-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_INSTALL_PLUGINS=grafana-piechart-panel
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./grafana/dashboards:/etc/grafana/provisioning/dashboards
+      - ./grafana/datasources:/etc/grafana/provisioning/datasources
+    networks:
+      - monitoring
+    restart: unless-stopped
+    depends_on:
+      - prometheus
+
+  # Node Exporter для системных метрик
+  node-exporter:
+    image: prom/node-exporter:latest
+    container_name: vpn-node-exporter
+    ports:
+      - "9100:9100"
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.sysfs=/host/sys'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    networks:
+      - monitoring
+    restart: unless-stopped
+
+  # OpenVPN Exporter - NOT NEEDED for API testing
+  # Only useful if monitoring local OpenVPN server
+  # openvpn-exporter:
+  #   image: kumina/openvpn-exporter:latest
+  #   container_name: vpn-openvpn-exporter
+  #   ports:
+  #     - "9176:9176"
+  #   environment:
+  #     - OPENVPN_STATUS_PATHS=/var/run/openvpn/status.log
+  #   volumes:
+  #     - /var/run/openvpn:/var/run/openvpn:ro
+  #   networks:
+  #     - monitoring
+  #   restart: unless-stopped
+  #   profiles:
+  #     - openvpn-monitoring
+
+  # InfluxDB для хранения time-series данных (опционально)
+  influxdb:
+    image: influxdb:2.7-alpine
+    container_name: vpn-influxdb
+    ports:
+      - "8086:8086"
+    environment:
+      - DOCKER_INFLUXDB_INIT_MODE=setup
+      - DOCKER_INFLUXDB_INIT_USERNAME=admin
+      - DOCKER_INFLUXDB_INIT_PASSWORD=adminpassword
+      - DOCKER_INFLUXDB_INIT_ORG=skipr
+      - DOCKER_INFLUXDB_INIT_BUCKET=k6
+      - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=${INFLUXDB_TOKEN:-skipr-token-change-me}
+    volumes:
+      - influxdb-data:/var/lib/influxdb2
+    networks:
+      - monitoring
+    restart: unless-stopped
+
+  # k6 для load testing
+  k6:
+    image: grafana/k6:latest
+    container_name: vpn-k6
+    volumes:
+      - ../scripts:/scripts
+      - ../results:/results
+    networks:
+      - monitoring
+    environment:
+      - BASE_URL=${BASE_URL:-https://api.skipr.network}
+      - TARGET_VUS=${TARGET_VUS:-100}
+      - TEST_DURATION=${TEST_DURATION:-10m}
+    command: run /scripts/vpn_api_load_test.js
+    profiles:
+      - test
+
+  # VPN Client Simulator (масштабируемый)
+  vpn-client:
+    build: ./vpn-client
+    networks:
+      - vpn-test
+    environment:
+      - VPN_SERVER=${VPN_SERVER:-vpn.skipr.network}
+      - VPN_PORT=${VPN_PORT:-1194}
+      - CLIENT_ID=${CLIENT_ID:-default-client-id}
+    volumes:
+      - ./vpn-configs:/etc/openvpn/configs:ro
+      - ./auth:/etc/openvpn/auth:ro
+    cap_add:
+      - NET_ADMIN
+    devices:
+      - /dev/net/tun
+    restart: on-failure
+    profiles:
+      - clients
+
+  # Loki для агрегации логов (опционально)
+  loki:
+    image: grafana/loki:latest
+    container_name: vpn-loki
+    ports:
+      - "3100:3100"
+    volumes:
+      - loki-data:/loki
+      - ./loki-config.yml:/etc/loki/local-config.yaml
+    networks:
+      - monitoring
+    restart: unless-stopped
+    profiles:
+      - logging
+
+  # Promtail для отправки логов в Loki (опционально)
+  promtail:
+    image: grafana/promtail:latest
+    container_name: vpn-promtail
+    volumes:
+      - /var/log:/var/log:ro
+      - ./promtail-config.yml:/etc/promtail/config.yml
+    command: -config.file=/etc/promtail/config.yml
+    networks:
+      - monitoring
+    restart: unless-stopped
+    profiles:
+      - logging
+
+networks:
+  monitoring:
+    driver: bridge
+  vpn-test:
+    driver: bridge
+
+volumes:
+  prometheus-data:
+  grafana-data:
+  influxdb-data:
+  loki-data:
